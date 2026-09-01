@@ -70,11 +70,17 @@ describe('OpenCode Go model catalog', () => {
     const manifest = JSON.parse(manifestRaw) as { version: string }
     const paths = [...patch.matchAll(/^(?:--- a|\+\+\+ b)\/(.+)$/gm)].map(match => match[1])
     const catalogImages = [...patch.matchAll(/^[+-](\{.*\})$/gm)].map(match => JSON.parse(match[1]!) as CatalogData)
+    const catalogById = catalogImages.map(image => new Map(
+      Object.values(image).flatMap(group => Object.values(group)).map(model => [model.id, model]),
+    ))
 
     expect(manifest.version).toBe('0.84.3')
     expect(new Set(paths)).toEqual(new Set([CATALOG_PATCH_PATH]))
     expect(catalogImages).toHaveLength(2)
     expect(Object.values(catalogImages[0]!).flatMap(group => Object.keys(group))).toEqual(PREVIOUS_MODEL_IDS)
     expect(catalogImages[1]!).toEqual(await expectedCatalogData())
+    for (const id of PREVIOUS_MODEL_IDS.filter(id => id !== 'ox-alpha-free')) {
+      expect(catalogById[1]!.get(id)).toEqual(catalogById[0]!.get(id))
+    }
   })
 })
