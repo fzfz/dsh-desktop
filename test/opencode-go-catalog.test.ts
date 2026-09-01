@@ -39,6 +39,11 @@ async function expectedCatalog(): Promise<CatalogModel[]> {
   return Object.values(groups).flatMap(group => Object.values(group))
 }
 
+async function expectedCatalogData(): Promise<CatalogData> {
+  const raw = await readFile(new URL('./fixtures/opencode-go-catalog.expected.json', import.meta.url), 'utf8')
+  return JSON.parse(raw) as CatalogData
+}
+
 describe('OpenCode Go model catalog', () => {
   it('exposes only the approved corrected static catalog', async () => {
     expect(getBuiltinModels('opencode-go')).toEqual(await expectedCatalog())
@@ -64,8 +69,12 @@ describe('OpenCode Go model catalog', () => {
     ])
     const manifest = JSON.parse(manifestRaw) as { version: string }
     const paths = [...patch.matchAll(/^(?:--- a|\+\+\+ b)\/(.+)$/gm)].map(match => match[1])
+    const catalogImages = [...patch.matchAll(/^[+-](\{.*\})$/gm)].map(match => JSON.parse(match[1]!) as CatalogData)
 
     expect(manifest.version).toBe('0.84.3')
     expect(new Set(paths)).toEqual(new Set([CATALOG_PATCH_PATH]))
+    expect(catalogImages).toHaveLength(2)
+    expect(Object.values(catalogImages[0]!).flatMap(group => Object.keys(group))).toEqual(PREVIOUS_MODEL_IDS)
+    expect(catalogImages[1]!).toEqual(await expectedCatalogData())
   })
 })
