@@ -156,6 +156,10 @@ describe('GitHub release contract', () => {
       to: 'icon.png'
     })
     expect(packageJson.build.extraResources).toContainEqual({
+      from: 'build/windows-hidden-console.mjs',
+      to: 'windows-hidden-console.mjs'
+    })
+    expect(packageJson.build.extraResources).toContainEqual({
       from: 'build/windows-child-process-hide.mjs',
       to: 'windows-child-process-hide.mjs'
     })

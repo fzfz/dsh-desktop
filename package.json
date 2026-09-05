@@ -333,6 +333,10 @@
         "to": "harness-node-entry.mjs"
       },
       {
+        "from": "build/windows-hidden-console.mjs",
+        "to": "windows-hidden-console.mjs"
+      },
+      {
         "from": "build/windows-child-process-hide.mjs",
         "to": "windows-child-process-hide.mjs"
       },
