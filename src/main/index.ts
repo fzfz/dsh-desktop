@@ -1648,8 +1648,7 @@ async function showPluginRecovery(options?: {
         const targetPlugin = detection.plugins[0]!
         try {
           const installedVersion = await readInstalledPluginVersion(dshHome, targetPlugin)
-          const runtimeVersion =
-            (await readBundledDshVersion(join(app.getAppPath(), 'node_modules'))) || '0.1.2-alpha.1'
+          const runtimeVersion = await readBundledDshVersion(join(app.getAppPath(), 'node_modules'))
           const check = await evaluatePluginMarketCompatibility({
             packageName: targetPlugin,
             installedVersion,

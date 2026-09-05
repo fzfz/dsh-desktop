@@ -8,7 +8,9 @@ This guide covers local development, validation, patch maintenance, and target-n
 - npm
 - macOS on Apple Silicon or Intel, or Windows x64
 
-DSH Desktop currently pins `@deepseek-ai/dsh@0.1.1-rc.2`. Windows packages bundle a target-native Node.js runtime for Harness, while macOS uses an Electron UtilityProcess. Both are independent of the Node.js version used to run development commands.
+DSH Desktop currently pins `@deepseek-ai/dsh@0.1.2-rc.1`. Windows packages bundle a target-native Node.js runtime for Harness, while macOS uses an Electron UtilityProcess. Both are independent of the Node.js version used to run development commands.
+
+The default `web` profile must keep `experimental-kimi-ppt-standard-adapter` set to `disabled: true`. Desktop upgrades may retain the reviewed Kimi/PPT packages, but must not enable the adapter because it registers the PPT Client slots and injects its Host prompt, Skill, and Tools.
 
 ## Local setup
 

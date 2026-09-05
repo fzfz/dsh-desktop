@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { runInNewContext } from 'node:vm'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -47,6 +48,16 @@ const patchedPackages = [
     markers: ["id: '@deepseek-ai/dsh-api-session-controller#session/delete'", "method: 'delete'"]
   },
   {
+    name: 'dsh-api-remotes',
+    version: '0.1.2-rc.1',
+    file: 'lib/client.js',
+    markers: [
+      'const _deepseek_ai_dsh_api_session_controller_session_delete_parameter_0$schema',
+      'id: "@deepseek-ai/dsh-api-session-controller#session/delete"',
+      'method: "delete"'
+    ]
+  },
+  {
     name: 'dsh-client-ui-workspace',
     version: '0.1.2-rc.1',
     file: 'lib/client.js',
@@ -75,6 +86,54 @@ describe('permanent session deletion dependency patches', () => {
 
     expect(ui).toContain('工作区文件会保留。此操作无法撤销。')
     expect(ui).toContain('Workspace files are kept. This can’t be undone.')
+  })
+
+  it('mounts session/delete exactly once from the aggregate Client Remote', async () => {
+    const source = await readFile(
+      path.join(projectRoot, 'node_modules', '@deepseek-ai', 'dsh-api-remotes', 'lib', 'client.js'),
+      'utf8'
+    )
+    let registration: {
+      factory(require: (id: string) => never): {
+        apply(ctx: {
+          remote: {
+            $mount(contribution: { descriptors: Array<{ id: string }> }): Promise<() => void>
+          }
+        }): Promise<() => Promise<void>>
+      }
+    } | undefined
+
+    runInNewContext(source, {
+      window: {
+        __ModuleLoader__: {
+          load(value: typeof registration) {
+            registration = value
+          }
+        }
+      }
+    })
+
+    expect(registration).toBeDefined()
+    if (!registration) throw new Error('aggregate Client Remote did not register with ModuleLoader')
+
+    const contributions: Array<{ descriptors: Array<{ id: string }> }> = []
+    const clientRemote = registration.factory((id) => {
+      throw new Error(`unexpected aggregate Client Remote dependency: ${id}`)
+    })
+    const dispose = await clientRemote.apply({
+      remote: {
+        async $mount(contribution) {
+          contributions.push(contribution)
+          return () => undefined
+        }
+      }
+    })
+    const deleteDescriptors = contributions
+      .flatMap((contribution) => contribution.descriptors)
+      .filter(({ id }) => id === '@deepseek-ai/dsh-api-session-controller#session/delete')
+
+    expect(deleteDescriptors).toHaveLength(1)
+    await dispose()
   })
 
   it('removes one materialized JSONL log without touching another session', async () => {
