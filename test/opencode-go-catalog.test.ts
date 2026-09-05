@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { describe, expect, it } from 'vitest'
 
@@ -31,29 +31,22 @@ const PREVIOUS_MODEL_IDS = [
   'muse-spark-1.2-contributor'
 ] as const
 
-const CATALOG_PATCH_PATH = 'node_modules/@earendil-works/pi-ai/dist/providers/data/opencode-go.json'
-
 async function expectedCatalog(): Promise<CatalogModel[]> {
   const raw = await readFile(new URL('./fixtures/opencode-go-catalog.expected.json', import.meta.url), 'utf8')
   const groups = JSON.parse(raw) as CatalogData
   return Object.values(groups).flatMap(group => Object.values(group))
 }
 
-async function expectedCatalogData(): Promise<CatalogData> {
-  const raw = await readFile(new URL('./fixtures/opencode-go-catalog.expected.json', import.meta.url), 'utf8')
-  return JSON.parse(raw) as CatalogData
-}
-
 describe('OpenCode Go model catalog', () => {
-  it('exposes only the approved corrected static catalog', async () => {
+  it('exposes the upstream 0.84.4 static catalog', async () => {
     expect(getBuiltinModels('opencode-go')).toEqual(await expectedCatalog())
   })
 
-  it('changes only the approved model ids relative to 0.84.3', () => {
+  it('keeps the catalog additions and upstream removals relative to 0.84.3', () => {
     const previous = new Set<string>(PREVIOUS_MODEL_IDS)
     const current = new Set(getBuiltinModels('opencode-go').map(model => model.id))
 
-    expect([...previous].filter(id => !current.has(id))).toEqual(['ox-alpha-free'])
+    expect([...previous].filter(id => !current.has(id))).toEqual(['ox-alpha-free', 'grok-4.5'])
     expect([...current].filter(id => !previous.has(id))).toEqual([
       'qwen3.8-flash',
       'glm-5.3-flash',
@@ -62,25 +55,14 @@ describe('OpenCode Go model catalog', () => {
     ])
   })
 
-  it('keeps the dependency version and patch target scoped', async () => {
-    const [manifestRaw, patch] = await Promise.all([
+  it('uses the updated dependency without a stale catalog patch', async () => {
+    const [manifestRaw, patches] = await Promise.all([
       readFile(new URL('../node_modules/@earendil-works/pi-ai/package.json', import.meta.url), 'utf8'),
-      readFile(new URL('../patches/@earendil-works+pi-ai+0.84.3.patch', import.meta.url), 'utf8')
+      readdir(new URL('../patches/', import.meta.url))
     ])
     const manifest = JSON.parse(manifestRaw) as { version: string }
-    const paths = [...patch.matchAll(/^(?:--- a|\+\+\+ b)\/(.+)$/gm)].map(match => match[1])
-    const catalogImages = [...patch.matchAll(/^[+-](\{.*\})$/gm)].map(match => JSON.parse(match[1]!) as CatalogData)
-    const catalogById = catalogImages.map(image => new Map(
-      Object.values(image).flatMap(group => Object.values(group)).map(model => [model.id, model]),
-    ))
 
-    expect(manifest.version).toBe('0.84.3')
-    expect(new Set(paths)).toEqual(new Set([CATALOG_PATCH_PATH]))
-    expect(catalogImages).toHaveLength(2)
-    expect(Object.values(catalogImages[0]!).flatMap(group => Object.keys(group))).toEqual(PREVIOUS_MODEL_IDS)
-    expect(catalogImages[1]!).toEqual(await expectedCatalogData())
-    for (const id of PREVIOUS_MODEL_IDS.filter(id => id !== 'ox-alpha-free')) {
-      expect(catalogById[1]!.get(id)).toEqual(catalogById[0]!.get(id))
-    }
+    expect(manifest.version).toBe('0.84.4')
+    expect(patches.filter(name => name.startsWith('@earendil-works+pi-ai+'))).toEqual([])
   })
 })
