@@ -40,7 +40,7 @@ corepack pnpm exec tsx scripts/release/pack.ts --family vendor --out dist/npm-ve
 corepack pnpm exec tsx scripts/release/pack.ts --family dsh    --out dist/npm-dsh    --concurrency 8
 ```
 
-产出 **9 个 vendor + 245 个 dsh** tarball，保存在 `packages/harness-0.1.2-alpha.4/`（含各 family 的 `publish-order.txt`）。旧目录 `packages/harness-0.1.2-alpha.3/` 已在同一提交删除。
+产出 **9 个 vendor + 242 个 dsh** tarball，保存在 `packages/harness-0.1.2-alpha.4/`（含各 family 的 `publish-order.txt`）。旧目录 `packages/harness-0.1.2-alpha.3/` 已在同一提交删除。
 
 ## 核心架构变化与协议影响
 

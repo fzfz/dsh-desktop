@@ -27,16 +27,17 @@ rc.1 的 release note 汇总范围是 `0.1.1-rc.2` 至 rc.1，而非只列 alpha
 | Agent 与连接 | release note 包含子 Agent 双向 `send_message`、连接状态/自动重试、ACP/模型设置能力 | 大多已在 alpha.4 基线；不新增 Desktop 侧 API。 |
 | 附件与工具 | release note 包含图片后台压缩上传、轨迹图片、`web_fetch` 默认可用、PTC mode 调整 | 大多已在 alpha.4 基线；不把实验性 Bundle 直接加入生产闭包。 |
 | 运行时修复 | release note 包含 Node 24.0–24.11.1 启动/HMR、Profile preset 和持久 shell 修复 | 大多已在 alpha.4 基线；Desktop 内置 Node 24.9.0，仍须实机回归。 |
-| 存储安全 | alpha.4 后新增投影缓存/JSON 存储跨版本读取、备份及损坏记录跳过恢复 | 现有 18 个 dsh 补丁未覆盖这些文件，按新 tgz 原样保留。 |
+| 存储安全 | alpha.4 后新增投影缓存/JSON 存储跨版本读取、备份及损坏记录跳过恢复 | 现有 20 个 dsh 补丁未覆盖这些文件，按新 tgz 原样保留。 |
 
 包名集合和 `@deepseek-ai/dsh` 运行时闭包相对 alpha.4 均无增删。因此没有把 Inspector、Web
 Preview 或其他可选 Bundle 意外打入桌面应用。
 
 ## 补丁迁移
 
-保留 `@deepseek-ai/cordis-plugin-loader@1.0.3` 的 vendor 补丁；其余 18 个
-`@deepseek-ai/dsh*` 补丁文件名由 `0.1.2-alpha.4` 改为 `0.1.2-rc.1`。上游本次未变更这些
-补丁覆盖的源码文件，版本标识迁移后仍必须由 `patch-package` 的 clean install 结果验证。
+保留 `@deepseek-ai/cordis-plugin-loader@1.0.3` 的 1 个 vendor 补丁。当前 rc.1 目录包含
+20 个 `@deepseek-ai/dsh*` 补丁：其中 19 个从 `0.1.2-alpha.4` 迁移，新增的
+`@deepseek-ai/dsh-api-remotes` 补丁补回聚合 Client Remote 遗漏的 `session/delete`。
+全部补丁仍必须由 `patch-package` 的 clean install 结果验证。
 
 ## 验证
 

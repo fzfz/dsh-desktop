@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 import { projectRoot } from './patch-path'
 
 const artifacts = {
@@ -15,6 +16,22 @@ const artifacts = {
     sha256: '97adcb338ced61cbbfaf9b453bf26a3c01265bd96b25778bd00061e092d10aa3'
   }
 } as const
+
+const kimiAdapter = {
+  id: 'experimental-kimi-ppt-standard-adapter',
+  packageName: '@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter'
+} as const
+
+interface ProfileEntry {
+  readonly id?: string
+  readonly name?: string
+  readonly disabled?: boolean
+  readonly insert?: readonly ProfileEntry[]
+}
+
+function flattenProfileEntries(entries: readonly ProfileEntry[]): ProfileEntry[] {
+  return entries.flatMap((entry) => [entry, ...flattenProfileEntries(entry.insert ?? [])])
+}
 
 async function artifact(name: keyof typeof artifacts): Promise<Buffer> {
   return readFile(path.join(projectRoot, 'packages', 'kimi-ppt', artifacts[name].file))
@@ -68,8 +85,22 @@ describe('Kimi PPT built-in plugin', () => {
     expect(core).toContain('ppt_get_template_reference')
     expect(core).not.toMatch(excluded)
     expect(adapter).toContain('conversation.hero.modeActions')
+    expect(adapter).toContain('conversation.input.accessory')
+    expect(adapter).toContain('conversation.composer.dock')
+    expect(adapter).toContain('dsh-kimi-ppt')
     expect(adapter).toContain('kimi-ppt')
     expect(adapter).not.toMatch(excluded)
+  })
+
+  it('routes every Kimi Host contribution through the standard adapter', async () => {
+    const entries = tarEntries(await artifact('adapter'))
+    const host = entries.get('package/lib/index.js')?.toString('utf8') ?? ''
+
+    expect(host).toContain('import * as officePpt from "dsh-kimi-ppt"')
+    expect(host).toContain('"tools"')
+    expect(host).toContain('"systemPrompt"')
+    expect(host).toContain('"skills"')
+    expect(host).toContain('await ctx.plugin(officePpt, config)')
   })
 
   it('ships every JavaScript chunk imported by the Host entry', async () => {
@@ -171,11 +202,14 @@ describe('Kimi PPT built-in plugin', () => {
     expect(client).toContain('children: accessory ?? renderSlot("conversation.input.accessory", extensionZone)')
   })
 
-  it('declares both local artifacts and mounts only the Kimi adapter', async () => {
+  it('keeps the reviewed Kimi packages installed but disables their only adapter', async () => {
     const manifest = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8')) as {
       dependencies: Record<string, string>
     }
-    const profilePatch = await readFile(path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'), 'utf8')
+    const profilePatchSource = await readFile(path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'), 'utf8')
+    const profilePatch = parse(profilePatchSource, {
+      customTags: [{ tag: 'tag:yaml.org,2002:js', resolve: (value: string) => value }]
+    }) as ProfileEntry[]
 
     expect(manifest.dependencies['dsh-kimi-ppt']).toBe(
       `file:packages/kimi-ppt/${artifacts.core.file}`
@@ -183,9 +217,12 @@ describe('Kimi PPT built-in plugin', () => {
     expect(manifest.dependencies['@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter']).toBe(
       `file:packages/kimi-ppt/${artifacts.adapter.file}`
     )
-    expect(profilePatch).toContain("name: '@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter'")
-    expect(profilePatch).not.toContain('office-ppt-standard-adapter')
-    expect(profilePatch).not.toContain('name: dsh-kimi-ppt')
-    expect(profilePatch).not.toContain('workbuddy')
+    const entries = flattenProfileEntries(profilePatch).filter((entry) => entry.id === kimiAdapter.id)
+
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ name: kimiAdapter.packageName, disabled: true })
+    expect(profilePatchSource).not.toContain('office-ppt-standard-adapter')
+    expect(profilePatchSource).not.toContain('name: dsh-kimi-ppt')
+    expect(profilePatchSource).not.toContain('workbuddy')
   })
 })

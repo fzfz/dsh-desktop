@@ -304,14 +304,14 @@ export function inferPluginRuntimeCompatibility(
   return { isCompatible: true }
 }
 
-export async function readBundledDshVersion(bundledNodeModulesPath: string): Promise<string | undefined> {
-  try {
-    const raw = await readFile(join(bundledNodeModulesPath, '@deepseek-ai', 'dsh', 'package.json'), 'utf8')
-    const manifest = JSON.parse(raw) as { version?: string }
-    return manifest.version
-  } catch {
-    return undefined
+export async function readBundledDshVersion(bundledNodeModulesPath: string): Promise<string> {
+  const manifestPath = join(bundledNodeModulesPath, '@deepseek-ai', 'dsh', 'package.json')
+  const raw = await readFile(manifestPath, 'utf8')
+  const manifest = JSON.parse(raw) as { version?: unknown }
+  if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
+    throw new Error(`Bundled DSH manifest has no version: ${manifestPath}`)
   }
+  return manifest.version
 }
 
 export async function readInstalledPluginVersion(
@@ -448,7 +448,7 @@ export async function checkupAllProfilePlugins(options: {
   fetchFn?: typeof fetch
   locale?: 'zh' | 'en'
 }): Promise<PluginHealthReport[]> {
-  const currentRuntimeVersion = (await readBundledDshVersion(options.bundledNodeModulesPath)) || '0.1.2-alpha.1'
+  const currentRuntimeVersion = await readBundledDshVersion(options.bundledNodeModulesPath)
   const incompatibleSet = new Set(options.incompatiblePlugins ?? [])
 
   const reports = await Promise.all(
